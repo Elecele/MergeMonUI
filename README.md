@@ -2,6 +2,8 @@
 
 This web application displays the status of active merge trains for a specific project hosted on a GitLab instance. It fetches data from the GitLab API and presents it in a user-friendly format.
 
+![Example Merge Train UI](img/mergemonui_example2.jpg)
+
 ## Features
 
 - Displays a table of active merge trains with details such as ID, Author, Merger, Created At, Updated At, MR Title, and Target Branch.
