@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Refresh Timeout in seconds -->
+    <meta http-equiv="refresh" content="180">
+    <link rel="icon" type="image/x-icon" href="img/favicon.ico">
+    <link rel="stylesheet" href="css/reset.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <title>Merge Train Status</title>
+    <script>
+        const PRIVATE_TOKEN = "<YOUR_PRIVATE_TOKEN>";
+        const PROJECT_ID = "<YOUR_PROJECT_ID>";
+        const HOST_URL = "<YOUR_HOST_URL>";
+        const MERGE_TRAIN_URL = "/api/v4/projects/" + PROJECT_ID + "/merge_trains?scope=active";
+        const MERGE_REQUEST_URL = "/api/v4/projects/" + PROJECT_ID + "/merge_requests/";
+
+        async function get_merge_request_data(id) {
+            const response = await fetch(HOST_URL + MERGE_REQUEST_URL + id, {
+                headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "PRIVATE-TOKEN": PRIVATE_TOKEN,
+                    "Content-Type": "application/json"
+                }
+            });
+            const data = await response.json();
+            return data;
+        }
+
+        async function get_merge_train_data() {
+            const response = await fetch(HOST_URL + MERGE_TRAIN_URL, {
+                headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "PRIVATE-TOKEN": PRIVATE_TOKEN,
+                    "Content-Type": "application/json"
+                }
+            });
+            const data = await response.json();
+            return data;
+        }
+
+        async function write_html_data() {
+            var dataDiv = document.getElementById("active_merge_trains");
+            var html = "<table style=\"width:90%\">";
+            var trainDiv = document.getElementById("train_id");
+            var train_html = "";
+            html += "<tr>";
+            html += "<th>ID</th>";
+            html += "<th>Author</th>";
+            html += "<th>Merger</th>";
+            html += "<th>Created At</th>";
+            html += "<th>Updated At</th>";
+            html += "<th>MR Title</th>";
+            html += "<th>Target Branch</th>";
+            html += "</tr>";
+
+            const merge_train_data = await get_merge_train_data();
+
+            function padTime(value) {
+                return value.toString().padStart(2, '0')
+            }
+
+            /* We have to add the last index first to the table to have the correct order */
+            for (let index = merge_train_data.length - 1; index >= 0; index--) {
+                var mr_iid = merge_train_data[index].merge_request.iid;
+                const merge_request_data = await get_merge_request_data(mr_iid);
+
+                const created = new Date(merge_train_data[index].created_at);
+                const updated = new Date(merge_train_data[index].updated_at);
+                html += "<tr>";
+                html += "<td><a href=\"" + merge_train_data[index].merge_request.web_url +
+                        "\" target=\"_blank\" rel=\"noopener noreferrer\">" + merge_train_data[index].merge_request.iid + "</a></td>";
+                html += "<td>" + merge_request_data.author.name + "</td>";
+
+                html += "<td>" + merge_request_data.merge_user.name + "</td>";
+                html += "<td>" + padTime(created.getHours()) + ":" + padTime(created.getMinutes()) + "</td>";
+                html += "<td>" + padTime(updated.getHours()) + ":" + padTime(updated.getMinutes()) + "</td>";
+                html += "<td>" + merge_train_data[index].merge_request.title + "</td>";
+                html += "<td>" + merge_train_data[index].target_branch + "</td>";
+                html += "</tr>";
+            }
+
+            /* We have to add the wagons from 0 to last
+             * to have the first element in the train right after the locomotive.
+             */
+            for (let index = 0; index < merge_train_data.length; index++) {
+                var mr_iid = merge_train_data[index].merge_request.iid;
+                const merge_request_data = await get_merge_request_data(mr_iid);
+                train_html += "<div class=\"avatar\"><img src=" + merge_request_data.author.avatar_url + "></img></div>";
+                train_html += "<div class=\"wagon\"></div>";
+                train_html += "<span>          </span>";
+            }
+            html += "</table>";
+
+            /* Only add the train in case we have a merge request inside */
+            if (merge_train_data.length > 0) {
+                train_html += "<div class=\"locomotive\">";
+                train_html += "<div class=\"cabin\"></div>";
+                train_html += "<div class=\"motor\"></div>";
+                train_html += "<div class=\"chimney\">";
+                train_html += "<div class=\"smokes\"></div>";
+                train_html += "</div>";
+                train_html += "<div class=\"light\"></div>";
+                train_html += "</div>";
+            }
+            trainDiv.innerHTML = train_html;
+
+            let ss = document.styleSheets; // all stylesheets
+            // Remove any CSS rules inserted by a previous call to this method
+            for (let j = ss[2].cssRules.length - 1; j > 0; j--) { // for each rule...
+                if (ss[2].cssRules[j].name === "voyage") { // does the name match?
+                    ss[2].deleteRule(j);
+                }
+            }
+
+            let train_length = merge_train_data.length * (70 /*wagon*/ + 4 /*span*/) + 85 /*locomotive*/ + 10 /*buffer*/
+            document.styleSheets[2].insertRule(`@keyframes voyage { 0% { left: -${train_length}px; } 100% { left: 100%; } }`)
+
+            let train_time = 20 + merge_train_data.length * 0.5
+            trainDiv.setAttribute("style", `width:${train_length}px; animation: voyage ${train_time}s linear infinite;`);
+
+            dataDiv.innerHTML = html;
+        }
+    </script>
+</head>
+<style>
+    table,
+    th,
+    td {
+        border: 1px solid black;
+        margin: 0 auto;
+        /* or margin: 0 auto 0 auto */
+    }
+</style>
+
+<body onload="write_html_data()">
+    <section class="stage">
+        <div class="sky">
+            <div class="cloud"></div>
+            <div class="cloud"></div>
+        </div>
+        <div id="train_id" class="train"></div>
+    </section>
+    <div id="active_merge_trains"></div>
+</body>
+
+</html>
